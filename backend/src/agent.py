@@ -1,10 +1,12 @@
-
 import datetime
 import re
-from collections import defaultdict
 import random
+import time
+from collections import defaultdict
 
-# Sample customer data
+# ----------------------------
+# Sample customer database
+# ----------------------------
 customer_database = {
     "123456789": {
         "name": "Kamal Perera",
@@ -24,7 +26,9 @@ customer_database = {
     }
 }
 
-# Enhanced FAQ dataset with Sri Lankan banking context
+# ----------------------------
+# FAQ dataset
+# ----------------------------
 faq_dataset = {
     "what is the interest rate for a personal loan": "Personal loan interest rates start from 12.5% per annum. Rates vary based on your credit profile.",
     "what is the interest rate for housing loan": "Housing loan rates start from 10.25% per annum for up to 25 years.",
@@ -41,7 +45,9 @@ faq_dataset = {
     "what documents needed for account opening": "Required: NIC, Utility bill, Initial deposit (LKR 1,000 minimum)."
 }
 
-# Enhanced team routing
+# ----------------------------
+# Team routing & priorities
+# ----------------------------
 team_routing = {
     "loan": "Loan Processing Desk",
     "housing_loan": "Mortgage Department", 
@@ -55,7 +61,6 @@ team_routing = {
     "general": "Customer Service Center"
 }
 
-# Enhanced keyword mapping
 category_keywords = {
     "loan": ["loan", "emi", "interest rate", "repayment", "installment"],
     "housing_loan": ["housing loan", "mortgage", "home loan", "property loan"],
@@ -68,7 +73,6 @@ category_keywords = {
     "complaints": ["complaint", "unsatisfied", "problem", "manager"]
 }
 
-# Priority levels
 priority_levels = {
     "fraud": "HIGH",
     "complaints": "HIGH", 
@@ -78,17 +82,19 @@ priority_levels = {
     "general": "LOW"
 }
 
-# Analytics tracking
+# ----------------------------
+# Analytics & session tracking
+# ----------------------------
 query_analytics = defaultdict(int)
 resolution_analytics = defaultdict(int)
 total_queries = 0
-
-# Session data
 customer_authenticated = False
 current_customer = None
 
+# ----------------------------
+# Functions
+# ----------------------------
 def authenticate_customer(account_number):
-    #Check if customer account exists
     global customer_authenticated, current_customer
     if account_number in customer_database:
         customer_authenticated = True
@@ -97,8 +103,6 @@ def authenticate_customer(account_number):
     return False
 
 def get_account_info(query):
-    #Handle account-specific queries
-
     if not customer_authenticated:
         return "For account information, please provide your 9-digit account number first."
     
@@ -108,19 +112,17 @@ def get_account_info(query):
     if "balance" in query_lower:
         return f"Hello {customer['name']}, your {customer['account_type']} account balance is LKR {customer['balance']:,.2f}"
     elif "statement" in query_lower:
-        return f"Last transaction: {customer['last_transaction']}. Download full statement from NTB Mobile App."
+        return f"Hello {customer['name']}, last transaction: {customer['last_transaction']}. Download full statement from NTB Mobile App."
     elif "status" in query_lower:
         return f"Account status: {customer['status']}"
     
     return None
 
 def detect_urgency(query):
-    #Check if query needs immediate attention
     urgent_keywords = ["emergency", "urgent", "fraud", "stolen", "unauthorized", "blocked"]
     return any(keyword in query.lower() for keyword in urgent_keywords)
 
 def fuzzy_match_faq(query):
-    #Find best matching FAQ using word overlap
     query_words = set(query.lower().split())
     best_match = None
     best_score = 0
@@ -129,7 +131,6 @@ def fuzzy_match_faq(query):
         faq_words = set(faq_question.split())
         common_words = faq_words.intersection(query_words)
         score = len(common_words) / len(faq_words) if faq_words else 0
-        
         if score > best_score and score > 0.3:
             best_match = answer
             best_score = score
@@ -137,7 +138,6 @@ def fuzzy_match_faq(query):
     return best_match
 
 def get_response_time(priority):
-    #Estimate response time
     times = {
         "URGENT": "Within 30 minutes",
         "HIGH": "Within 2 hours", 
@@ -147,7 +147,6 @@ def get_response_time(priority):
     return times.get(priority, "Within 24 hours")
 
 def log_query(category, resolved=True):
-    #Track query statistics
     global total_queries
     query_analytics[category] += 1
     total_queries += 1
@@ -155,7 +154,6 @@ def log_query(category, resolved=True):
         resolution_analytics[category] += 1
 
 def show_analytics():
-    #Display usage statistics
     print("\n" + "="*50)
     print("BANKING AI AGENT - ANALYTICS REPORT")
     print("="*50)
@@ -171,7 +169,13 @@ def show_analytics():
 def answer_or_escalate(query):
     global customer_authenticated, current_customer
     
-    # Check for account number in query
+    # Small delay to simulate processing
+    time.sleep(0.8)
+    
+    if len(query.strip()) < 3:
+        return "Please enter a more detailed query."
+    
+    # Account authentication
     account_pattern = r'\b\d{9}\b'
     account_match = re.search(account_pattern, query)
     if account_match:
@@ -183,40 +187,32 @@ def answer_or_escalate(query):
             log_query("authentication", resolved=False)
             return "Account not found. Please verify your 9-digit account number."
     
-    # Handle authenticated customer account queries
+    # Account queries
     if customer_authenticated:
         account_response = get_account_info(query)
         if account_response:
             log_query("account", resolved=True)
             return f"Answer: {account_response}"
     
-    # Try fuzzy FAQ matching first
+    # FAQ matching
     faq_answer = fuzzy_match_faq(query)
     if faq_answer:
         log_query("faq", resolved=True)
         return f"Answer: {faq_answer}"
     
-    # Check exact FAQ matches (original logic)
+    # Category detection
     query_lower = query.lower()
-    for faq_question, answer in faq_dataset.items():
-        if faq_question in query_lower:
-            log_query("faq", resolved=True)
-            return f"Answer: {answer}"
-    
-    # Determine category for escalation
     detected_category = "general"
     for category, keywords in category_keywords.items():
         if any(k in query_lower for k in keywords):
             detected_category = category
             break
     
-    # Check urgency and set priority
     is_urgent = detect_urgency(query)
     priority = priority_levels.get(detected_category, "LOW")
     if is_urgent:
         priority = "URGENT"
     
-    # Generate escalation with enhanced details
     team = team_routing.get(detected_category, "Customer Service Center")
     ticket_id = f"NTB{random.randint(10000, 99999)}"
     response_time = get_response_time(priority)
@@ -232,12 +228,14 @@ Contact: 011-2448448 for urgent matters"""
     
     return escalation_msg
 
+# ----------------------------
+# Main CLI Demo
+# ----------------------------
 if __name__ == "__main__":
     print("=== Nations Trust Bank AI Agent - Enhanced Demo ===")
-    print("Features: Account Integration | Smart Matching | Analytics")
+    print("Features: Account Integration | Smart Matching | Escalation | Analytics")
     print("Try: 'balance check', 'loan rates', or use account number 123456789")
-    print("Commands: 'analytics' for stats, 'exit' to quit")
-    print()
+    print("Commands: 'analytics' for stats, 'exit' to quit\n")
 
     while True:
         user_query = input("Enter query: ").strip()
